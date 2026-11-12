@@ -1,25 +1,22 @@
-/****************************************************************************
- *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #pragma once
 
 #include "Section.h"
-#include "ComplexMissionItem.h"
-#include "MissionItem.h"
 #include "Fact.h"
+
+#define VIDEO_CAPTURE_STATUS_INTERVAL 0.2   //-- Send capture status every 5 seconds
+
+class PlanMasterController;
+class CameraSectionTest;
+class MissionItem;
+class QmlObjectListModel;
+
 
 class CameraSection : public Section
 {
     Q_OBJECT
 
 public:
-    CameraSection(Vehicle* vehicle, QObject* parent = NULL);
+    CameraSection(PlanMasterController* masterController, QObject* parent = nullptr);
 
     // These enum values must match the json meta data
 
@@ -31,8 +28,8 @@ public:
         TakeVideo,
         StopTakingVideo,
         TakePhoto
-    };    
-    Q_ENUMS(CameraAction)
+    };
+    Q_ENUM(CameraAction)
 
     Q_PROPERTY(bool     specifyGimbal                   READ specifyGimbal                  WRITE setSpecifyGimbal              NOTIFY specifyGimbalChanged)
     Q_PROPERTY(Fact*    gimbalPitch                     READ gimbalPitch                                                        CONSTANT)
@@ -57,13 +54,18 @@ public:
     void setSpecifyGimbal       (bool specifyGimbal);
     void setSpecifyCameraMode   (bool specifyCameraMode);
 
-    ///< Signals specifiedGimbalYawChanged
     ///< @return The gimbal yaw specified by this item, NaN if not specified
     double specifiedGimbalYaw(void) const;
 
-    ///< Signals specifiedGimbalPitchChanged
     ///< @return The gimbal pitch specified by this item, NaN if not specified
     double specifiedGimbalPitch(void) const;
+
+    static bool scanStopTakingPhotos(QmlObjectListModel* visualItems, int scanIndex, bool removeScannedItems);
+    static bool scanStopTakingVideo(QmlObjectListModel* visualItems, int scanIndex, bool removeScannedItems);
+    static void appendStopTakingPhotos(QList<MissionItem*>& items, int& seqNum, QObject* missionItemParent);
+    static void appendStopTakingVideo(QList<MissionItem*>& items, int& seqNum, QObject* missionItemParent);
+    static int  stopTakingPhotosCommandCount(void) { return 2; }
+    static int  stopTakingVideoCommandCount(void) { return 1; }
 
     // Overrides from Section
     bool available          (void) const override { return _available; }
@@ -95,11 +97,9 @@ private:
     bool _scanGimbal(QmlObjectListModel* visualItems, int scanIndex);
     bool _scanTakePhoto(QmlObjectListModel* visualItems, int scanIndex);
     bool _scanTakePhotosIntervalTime(QmlObjectListModel* visualItems, int scanIndex);
-    bool _scanStopTakingPhotos(QmlObjectListModel* visualItems, int scanIndex);
     bool _scanTriggerStartDistance(QmlObjectListModel* visualItems, int scanIndex);
     bool _scanTriggerStopDistance(QmlObjectListModel* visualItems, int scanIndex);
     bool _scanTakeVideo(QmlObjectListModel* visualItems, int scanIndex);
-    bool _scanStopTakingVideo(QmlObjectListModel* visualItems, int scanIndex);
     bool _scanSetCameraMode(QmlObjectListModel* visualItems, int scanIndex);
 
     bool    _available;
@@ -112,14 +112,17 @@ private:
     Fact    _cameraPhotoIntervalDistanceFact;
     Fact    _cameraPhotoIntervalTimeFact;
     Fact    _cameraModeFact;
+    int     _takePhotoSequence;
     bool    _dirty;
 
     static QMap<QString, FactMetaData*> _metaDataMap;
 
-    static const char* _gimbalPitchName;
-    static const char* _gimbalYawName;
-    static const char* _cameraActionName;
-    static const char* _cameraPhotoIntervalDistanceName;
-    static const char* _cameraPhotoIntervalTimeName;
-    static const char* _cameraModeName;
+    static constexpr const char* _gimbalPitchName =                   "GimbalPitch";
+    static constexpr const char* _gimbalYawName =                     "GimbalYaw";
+    static constexpr const char* _cameraActionName =                  "CameraAction";
+    static constexpr const char* _cameraPhotoIntervalDistanceName =   "CameraPhotoIntervalDistance";
+    static constexpr const char* _cameraPhotoIntervalTimeName =       "CameraPhotoIntervalTime";
+    static constexpr const char* _cameraModeName =                    "CameraMode";
+
+    friend CameraSectionTest;
 };

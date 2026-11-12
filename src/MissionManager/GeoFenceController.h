@@ -1,62 +1,64 @@
-/****************************************************************************
- *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
+#pragma once
 
-#ifndef GeoFenceController_H
-#define GeoFenceController_H
+#include <QtPositioning/QGeoCoordinate>
+#include <QtQmlIntegration/QtQmlIntegration>
 
 #include "PlanElementController.h"
-#include "GeoFenceManager.h"
-#include "QGCFencePolygon.h"
-#include "QGCFenceCircle.h"
-#include "Vehicle.h"
-#include "MultiVehicleManager.h"
-#include "QGCLoggingCategory.h"
-
-Q_DECLARE_LOGGING_CATEGORY(GeoFenceControllerLog)
+#include "QmlObjectListModel.h"
+#include "Fact.h"
 
 class GeoFenceManager;
+class QGCFenceCircle;
+class QGCFencePolygon;
+class Vehicle;
 
 class GeoFenceController : public PlanElementController
 {
     Q_OBJECT
-    
+    QML_ELEMENT
+    QML_UNCREATABLE("")
+    Q_MOC_INCLUDE("QGCFencePolygon.h")
+    Q_MOC_INCLUDE("QGCFenceCircle.h")
+
 public:
-    GeoFenceController(PlanMasterController* masterController, QObject* parent = NULL);
+    GeoFenceController(PlanMasterController* masterController, QObject* parent = nullptr);
     ~GeoFenceController();
 
-    Q_PROPERTY(QmlObjectListModel*  polygons            READ polygons                                       CONSTANT)
-    Q_PROPERTY(QmlObjectListModel*  circles             READ circles                                        CONSTANT)
-    Q_PROPERTY(QGeoCoordinate       breachReturnPoint   READ breachReturnPoint  WRITE setBreachReturnPoint  NOTIFY breachReturnPointChanged)
+    Q_PROPERTY(QmlObjectListModel*  polygons                READ polygons                                           CONSTANT)
+    Q_PROPERTY(QmlObjectListModel*  circles                 READ circles                                            CONSTANT)
+    Q_PROPERTY(QGeoCoordinate       breachReturnPoint       READ breachReturnPoint      WRITE setBreachReturnPoint  NOTIFY breachReturnPointChanged)
+    Q_PROPERTY(Fact*                breachReturnAltitude    READ breachReturnAltitude                               CONSTANT)
+
+    // Radius of the "paramCircularFence" which is called the "Geofence Failsafe" in PX4 and the "Circular Geofence" on ArduPilot
+    Q_PROPERTY(double               paramCircularFence      READ paramCircularFence                                 NOTIFY paramCircularFenceChanged)
 
     /// Add a new inclusion polygon to the fence
-    ///     @param topLeft - Top left coordinate or map viewport
-    ///     @param topLeft - Bottom right left coordinate or map viewport
+    ///     @param topLeft: Top left coordinate or map viewport
+    ///     @param bottomRight: Bottom right left coordinate or map viewport
     Q_INVOKABLE void addInclusionPolygon(QGeoCoordinate topLeft, QGeoCoordinate bottomRight);
 
     /// Add a new inclusion circle to the fence
-    ///     @param topLeft - Top left coordinate or map viewport
-    ///     @param topLeft - Bottom right left coordinate or map viewport
+    ///     @param topLeft: Top left coordinate or map viewport
+    ///     @param bottomRight: Bottom right left coordinate or map viewport
     Q_INVOKABLE void addInclusionCircle(QGeoCoordinate topLeft, QGeoCoordinate bottomRight);
 
     /// Deletes the specified polygon from the polygon list
-    ///     @param index Index of poygon to delete
+    ///     @param index: Index of polygon to delete
     Q_INVOKABLE void deletePolygon(int index);
 
     /// Deletes the specified circle from the circle list
-    ///     @param index Index of circle to delete
+    ///     @param index: Index of circle to delete
     Q_INVOKABLE void deleteCircle(int index);
 
     /// Clears the interactive bit from all fence items
     Q_INVOKABLE void clearAllInteractive(void);
 
+    double  paramCircularFence  (void);
+    Fact*   breachReturnAltitude(void) { return &_breachReturnAltitudeFact; }
+
+    // Overrides from PlanElementController
     bool supported                  (void) const final;
-    void start                      (bool editMode) final;
+    void start                      (bool flyView) final;
     void save                       (QJsonObject& json) final;
     bool load                       (const QJsonObject& json, QString& errorString) final;
     void loadFromVehicle            (void) final;
@@ -67,44 +69,63 @@ public:
     bool dirty                      (void) const final;
     void setDirty                   (bool dirty) final;
     bool containsItems              (void) const final;
-    void managerVehicleChanged      (Vehicle* managerVehicle) final;
     bool showPlanFromManagerVehicle (void) final;
 
     QmlObjectListModel* polygons                (void) { return &_polygons; }
     QmlObjectListModel* circles                 (void) { return &_circles; }
     QGeoCoordinate      breachReturnPoint       (void) const { return _breachReturnPoint; }
 
-    void setBreachReturnPoint(const QGeoCoordinate& breachReturnPoint);
+    void setBreachReturnPoint   (const QGeoCoordinate& breachReturnPoint);
+    bool isEmpty                (void) const;
 
 signals:
     void breachReturnPointChanged       (QGeoCoordinate breachReturnPoint);
     void editorQmlChanged               (QString editorQml);
     void loadComplete                   (void);
+    void paramCircularFenceChanged      (void);
 
 private slots:
-    void _polygonDirtyChanged(bool dirty);
-    void _setDirty(void);
-    void _setFenceFromManager(const QList<QGCFencePolygon>& polygons,
-                              const QList<QGCFenceCircle>&  circles);
-    void _setReturnPointFromManager(QGeoCoordinate breachReturnPoint);
-    void _managerLoadComplete(void);
-    void _updateContainsItems(void);
-    void _managerSendComplete(bool error);
-    void _managerRemoveAllComplete(bool error);
+    void _fenceListDirtyChanged     (bool dirty);
+    void _setDirty                  (void);
+    void _setFenceFromManager       (const QList<QGCFencePolygon>& polygons, const QList<QGCFenceCircle>&  circles);
+    void _setReturnPointFromManager (QGeoCoordinate breachReturnPoint);
+    void _managerLoadComplete       (void);
+    void _managerSendComplete       (bool error);
+    void _managerRemoveAllComplete  (bool error);
+    void _parametersReady           (void);
+    void _managerVehicleChanged      (Vehicle* managerVehicle);
 
 private:
     void _init(void);
-    void _signalAll(void);
 
-    GeoFenceManager*    _geoFenceManager;
-    bool                _dirty;
+    Vehicle*            _managerVehicle =               nullptr;
+    GeoFenceManager*    _geoFenceManager =              nullptr;
+    bool                _dirty =                        false;
     QmlObjectListModel  _polygons;
     QmlObjectListModel  _circles;
     QGeoCoordinate      _breachReturnPoint;
-    bool                _itemsRequested;
+    Fact                _breachReturnAltitudeFact;
+    double              _breachReturnDefaultAltitude =  qQNaN();
+    bool                _itemsRequested =               false;
 
-    static const char* _jsonFileTypeValue;
-    static const char* _jsonBreachReturnKey;
+    Fact*               _px4ParamCircularFenceFact =        nullptr;
+    Fact*               _apmParamCircularFenceRadiusFact =  nullptr;
+    Fact*               _apmParamCircularFenceEnabledFact = nullptr;
+    Fact*               _apmParamCircularFenceTypeFact =    nullptr;
+
+    static QMap<QString, FactMetaData*> _metaDataMap;
+
+    static constexpr int _jsonCurrentVersion = 2;
+
+    static constexpr const char* _jsonFileTypeValue =        "GeoFence";
+    static constexpr const char* _jsonBreachReturnKey =      "breachReturn";
+    static constexpr const char* _jsonPolygonsKey =          "polygons";
+    static constexpr const char* _jsonCirclesKey =           "circles";
+
+    static constexpr const char* _breachReturnAltitudeFactName = "Altitude";
+
+    static constexpr const char* _px4ParamCircularFence =    "GF_MAX_HOR_DIST";
+    static constexpr const char* _apmParamCircularFenceRadius =    "FENCE_RADIUS";
+    static constexpr const char* _apmParamCircularFenceEnabled =    "FENCE_ENABLE";
+    static constexpr const char* _apmParamCircularFenceType =    "FENCE_TYPE";
 };
-
-#endif

@@ -1,0 +1,27 @@
+codecov:
+  require_ci_to_pass: false
+  notify:
+    after_n_builds: 1  # Only Linux Debug generates coverage
+    wait_for_ci: false
+
+coverage:
+  range: "30...90"
+
+  # No project or patch check on pull requests. Both were informational, and Codecov sometimes
+  # left one of them "in progress" for good, which read as a workflow that was still running.
+  # Its pull request comment and the Build Results comment carry the numbers, and linux.yml
+  # enforces the thresholds (verify_coverage_thresholds.py).
+  status: false
+
+comment:
+  layout: "reach,diff,flags,tree,footer"
+  require_base: false
+  require_head: false
+
+# gcovr reports only src/ and test/ (cmake/modules/Coverage.cmake)
+ignore:
+  - "test/**/*"
+
+flags:
+  unittests:
+    carryforward: true

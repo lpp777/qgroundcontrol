@@ -1,0 +1,84 @@
+name: Check Links
+
+on:
+  push:
+    branches:
+      - master
+    paths: &link-paths
+      - '**.md'
+      - 'tools/configs/lychee.toml'
+      - '.github/workflows/check-links.yml'
+      - '!docs/ko/**'
+      - '!docs/tr/**'
+      - '!docs/zh/**'
+  pull_request:
+    paths: *link-paths
+  workflow_dispatch:
+
+# Only a pull request's superseded runs are cancelled. Every other run has its own group, so a newer
+# push neither cancels it nor replaces it while it waits.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check-links:
+    name: Check Links
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup configuration validation
+        uses: ./.github/actions/setup-python
+        with:
+          groups: test
+      - name: Validate link exception deadlines
+        run: python3 tools/validate_configs.py
+
+      - name: Restore link cache
+        id: link-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .lycheecache
+          key: lychee-v1-${{ runner.os }}-${{ hashFiles('tools/configs/lychee.toml', '.github/workflows/check-links.yml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            lychee-v1-${{ runner.os }}-${{ hashFiles('tools/configs/lychee.toml', '.github/workflows/check-links.yml') }}-
+
+      - name: Check links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: '--config tools/configs/lychee.toml --cache --max-cache-age 3d --no-progress **/*.md'
+          lycheeVersion: v0.22.0
+          failIfEmpty: true
+          fail: ${{ github.event_name == 'pull_request' }}
+
+      - name: Save link cache
+        if: >-
+          !cancelled() && hashFiles('.lycheecache') != '' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/cache/save@v6
+        with:
+          path: .lycheecache
+          key: ${{ steps.link-cache.outputs.cache-primary-key }}
+
+      - name: Upload report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: link-check-report
+          path: ./lychee/out.md
+          if-no-files-found: ignore
+          retention-days: 7

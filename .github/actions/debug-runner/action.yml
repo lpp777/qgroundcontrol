@@ -1,0 +1,22 @@
+name: Debug Runner
+description: Open an actor-only SSH session; callers must gate manual failures and set a step timeout
+
+runs:
+  using: composite
+  steps:
+    - name: Install Windows debug shell
+      if: runner.os == 'Windows'
+      id: msys2
+      uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
+      with:
+        msystem: MSYS
+        install: tmate
+        cache: false
+
+    - name: Open SSH debug session
+      uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
+      with:
+        limit-access-to-actor: true
+        detached: false
+        install-dependencies: ${{ runner.os != 'Windows' }}
+        msys2-location: ${{ steps.msys2.outputs.msys2-location }}

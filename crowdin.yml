@@ -1,0 +1,10 @@
+# Replace the default commit message so it has no [ci skip]; Crowdin PRs must run CI (JsonResourceAuditTest).
+# The title and message are Conventional Commits, which the PR title check requires.
+pull_request_title: "chore: update translations (Crowdin)"
+commit_message: "chore: new translations %original_file_name% (%language%)"
+append_commit_message: false
+files:
+  - source: /translations/qgc.ts
+    translation: /translations/qgc_source_%locale_with_underscore%.ts
+  - source: /translations/qgc-json.ts
+    translation: /translations/qgc_json_%locale_with_underscore%.ts

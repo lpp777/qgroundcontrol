@@ -1,25 +1,15 @@
-/****************************************************************************
- *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
+import QtQuick
+import QtQuick.Controls
+import QtLocation
+import QtPositioning
 
-import QtQuick          2.3
-import QtQuick.Controls 1.2
-import QtLocation       5.3
-import QtPositioning    5.3
-
-import QGroundControl               1.0
-import QGroundControl.ScreenTools   1.0
-import QGroundControl.Palette       1.0
-import QGroundControl.Controls      1.0
-import QGroundControl.FlightMap     1.0
+import QGroundControl
+import QGroundControl.Controls
+import QGroundControl.FlightMap
 
 /// Rally Point map visuals
 Item {
+    id: _root
     z: QGroundControl.zOrderMapItems
 
     property var    map
@@ -44,12 +34,22 @@ Item {
         id: dragAreaComponent
 
         MissionItemIndicatorDrag {
+            mapControl:     _root.map
             itemCoordinate: rallyPointObject.coordinate
-            visible:        rallyPointObject == myRallyPointController.currentRallyPoint
+            visible:        rallyPointObject === myRallyPointController.currentRallyPoint && _root.interactive
 
             property var rallyPointObject
 
-            onItemCoordinateChanged: rallyPointObject.coordinate = itemCoordinate
+            // The drag only moves the point. Its altitude is read live because the drag breaks the itemCoordinate binding
+            onItemCoordinateChanged: rallyPointObject.coordinate = QtPositioning.coordinate(itemCoordinate.latitude, itemCoordinate.longitude, rallyPointObject.coordinate.altitude)
+
+            // A PX4 AMSL altitude is the ground height under the point, so it is read again where the point lands
+            onDragStop: {
+                const vehicle = myRallyPointController.masterController.controllerVehicle
+                if (vehicle && vehicle.px4Firmware && rallyPointObject.altitudeFrame === QGroundControl.AltitudeFrameAbsolute) {
+                    rallyPointObject.useTerrainAltitude()
+                }
+            }
         }
     }
 
@@ -61,15 +61,20 @@ Item {
             anchorPoint.x:  sourceItem.anchorPointX
             anchorPoint.y:  sourceItem.anchorPointY
             z:              QGroundControl.zOrderMapItems
+            opacity:        _root.opacity
 
             property var rallyPointObject
 
             sourceItem: MissionItemIndexLabel {
-                id:         itemIndexLabel
-                label:      qsTr("R", "rally point map item label")
-                checked:    _editingLayer == _layerRallyPoints ? rallyPointObject == myRallyPointController.currentRallyPoint : false
-
-                onClicked: myRallyPointController.currentRallyPoint = rallyPointObject
+                id:                 itemIndexLabel
+                label:              qsTr("R", "rally point map item label")
+                checked:            _editingLayer == _layerRally ? rallyPointObject === myRallyPointController.currentRallyPoint : false
+                highlightSelected:  true
+                onClicked: {
+                    if (mainWindow.allowViewSwitch()) {
+                        myRallyPointController.currentRallyPoint = rallyPointObject
+                    }
+                }
             }
         }
     }
@@ -82,6 +87,7 @@ Item {
             model: _rallyPoints
 
             delegate: Item {
+                opacity:        _root.opacity
                 property var _visuals: [ ]
 
                 Component.onCompleted: {

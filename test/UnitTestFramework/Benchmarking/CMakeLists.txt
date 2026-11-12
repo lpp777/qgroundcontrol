@@ -1,0 +1,2 @@
+include(TestSupport)
+qgc_add_benchmark_support(QGCUnitTests)

@@ -1,0 +1,13 @@
+rules:
+  # Runners cannot load $/ actions from a fork PR's merge commit, so local actions stay checkout-backed ./ paths.
+  self-repository:
+    disable: true
+  # Third-party actions are pinned to a commit SHA; GitHub's own keep version tags
+  # (actions/README.md#external-action-reference-policy). ref-pin accepts any ref, a branch
+  # included: test_workflow_security_policy.py requires the version tag.
+  unpinned-uses:
+    config:
+      policies:
+        actions/*: ref-pin
+        github/*: ref-pin
+        "*": hash-pin

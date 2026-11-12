@@ -1,0 +1,39 @@
+# QGroundControl C++ Static Analysis
+# Clang-Tidy configuration for C++20 and Qt 6
+
+---
+# Bug, analyzer, and performance checks only (tools/analyzers/README.md#check-policy); the excluded ones flag:
+# - any adjacent parameters of one type, exceptions in code that never throws, and QObjects their parent deletes;
+# - one QGC idiom each: `1 << n` flag values, static Qt objects and logging categories, enums wider than one byte.
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  performance-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  -clang-analyzer-cplusplus.NewDeleteLeaks,
+  -bugprone-signed-bitwise,
+  -bugprone-throwing-static-initialization,
+  -performance-enum-size,
+
+# Promote high-signal bug classes to errors; everything else stays a warning.
+WarningsAsErrors: >
+  bugprone-use-after-move,
+  bugprone-undefined-memory-manipulation,
+  bugprone-dangling-handle,
+  bugprone-string-constructor,
+  clang-analyzer-core.NullDereference,
+  clang-analyzer-core.uninitialized.*,
+  clang-analyzer-cplusplus.Move
+
+CheckOptions:
+  - key: performance-for-range-copy.WarnOnAllAutoCopies
+    value: 'true'
+
+# A config file cannot name the checkout, so this also matches a dependency's src/, test/, or tools/ directory;
+# tools/analyze.py anchors it to the checkout (--header-filter). ExcludeHeaderFilterRegex is not used because
+# clang-tidy and clangd 18 reject a config file that has it.
+HeaderFilterRegex: '^.*/(src|test|tools)/.*\.(h|hpp)$'
+FormatStyle: file
+...

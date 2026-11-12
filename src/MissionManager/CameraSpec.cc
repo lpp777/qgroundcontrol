@@ -1,58 +1,22 @@
-/****************************************************************************
- *
- *   (c) 2009-2016 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
- *
- * QGroundControl is licensed according to the terms in the file
- * COPYING.md in the root of the source code directory.
- *
- ****************************************************************************/
-
 #include "CameraSpec.h"
-#include "JsonHelper.h"
+#include "JsonParsing.h"
 
-#include <QQmlEngine>
+#include <QtQml/QQmlEngine>
 
-const char* CameraSpec::_sensorWidthName =          "SensorWidth";
-const char* CameraSpec::_sensorHeightName =         "SensorHeight";
-const char* CameraSpec::_imageWidthName =           "ImageWidth";
-const char* CameraSpec::_imageHeightName =          "ImageHeight";
-const char* CameraSpec::_focalLengthName =          "FocalLength";
-const char* CameraSpec::_landscapeName =            "Landscape";
-const char* CameraSpec::_fixedOrientationName =     "FixedOrientation";
-const char* CameraSpec::_minTriggerIntervalName =   "MinTriggerInterval";
-
-CameraSpec::CameraSpec(QObject* parent)
+CameraSpec::CameraSpec(const QString& settingsGroup, QObject* parent)
     : QObject                   (parent)
     , _dirty                    (false)
     , _metaDataMap              (FactMetaData::createMapFromJsonFile(QStringLiteral(":/json/CameraSpec.FactMetaData.json"), this))
-    , _sensorWidthFact          (0, _sensorWidthName,           FactMetaData::valueTypeDouble)
-    , _sensorHeightFact         (0, _sensorHeightName,          FactMetaData::valueTypeDouble)
-    , _imageWidthFact           (0, _imageWidthName,            FactMetaData::valueTypeUint32)
-    , _imageHeightFact          (0, _imageHeightName,           FactMetaData::valueTypeUint32)
-    , _focalLengthFact          (0, _focalLengthName,           FactMetaData::valueTypeDouble)
-    , _landscapeFact            (0, _landscapeName,             FactMetaData::valueTypeBool)
-    , _fixedOrientationFact     (0, _fixedOrientationName,      FactMetaData::valueTypeBool)
-    , _minTriggerIntervalFact   (0, _minTriggerIntervalName,    FactMetaData::valueTypeDouble)
+    , _sensorWidthFact          (settingsGroup, _metaDataMap[_sensorWidthName])
+    , _sensorHeightFact         (settingsGroup, _metaDataMap[_sensorHeightName])
+    , _imageWidthFact           (settingsGroup, _metaDataMap[_imageWidthName])
+    , _imageHeightFact          (settingsGroup, _metaDataMap[_imageHeightName])
+    , _focalLengthFact          (settingsGroup, _metaDataMap[_focalLengthName])
+    , _landscapeFact            (settingsGroup, _metaDataMap[_landscapeName])
+    , _fixedOrientationFact     (settingsGroup, _metaDataMap[_fixedOrientationName])
+    , _minTriggerIntervalFact   (settingsGroup, _metaDataMap[_minTriggerIntervalName])
 {
-    _init(true);
-}
-
-CameraSpec::CameraSpec(const CameraSpec& other, QObject* parent)
-    : QObject                   (parent)
-    , _dirty                    (false)
-    , _metaDataMap              (FactMetaData::createMapFromJsonFile(QStringLiteral(":/json/CameraSpec.FactMetaData.json"), this))
-    , _sensorWidthFact          (0, _sensorWidthName,           FactMetaData::valueTypeDouble)
-    , _sensorHeightFact         (0, _sensorHeightName,          FactMetaData::valueTypeDouble)
-    , _imageWidthFact           (0, _imageWidthName,            FactMetaData::valueTypeUint32)
-    , _imageHeightFact          (0, _imageHeightName,           FactMetaData::valueTypeUint32)
-    , _focalLengthFact          (0, _focalLengthName,           FactMetaData::valueTypeDouble)
-    , _landscapeFact            (0, _landscapeName,             FactMetaData::valueTypeBool)
-    , _fixedOrientationFact     (0, _fixedOrientationName,      FactMetaData::valueTypeBool)
-    , _minTriggerIntervalFact   (0, _minTriggerIntervalName,    FactMetaData::valueTypeDouble)
-{
-    _init(false);
-
-    *this = other;
+    QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
 }
 
 const CameraSpec& CameraSpec::operator=(const CameraSpec& other)
@@ -67,20 +31,6 @@ const CameraSpec& CameraSpec::operator=(const CameraSpec& other)
     _minTriggerIntervalFact.setRawValue (other._minTriggerIntervalFact.rawValue());
 
     return *this;
-}
-
-void CameraSpec::_init(bool setDefaults)
-{
-    QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
-
-    _sensorWidthFact.setMetaData        (_metaDataMap[_sensorWidthName],        setDefaults);
-    _sensorHeightFact.setMetaData       (_metaDataMap[_sensorHeightName],       setDefaults);
-    _imageWidthFact.setMetaData         (_metaDataMap[_imageWidthName],         setDefaults);
-    _imageHeightFact.setMetaData        (_metaDataMap[_imageHeightName],        setDefaults);
-    _focalLengthFact.setMetaData        (_metaDataMap[_focalLengthName],        setDefaults);
-    _landscapeFact.setMetaData          (_metaDataMap[_landscapeName],          setDefaults);
-    _fixedOrientationFact.setMetaData   (_metaDataMap[_fixedOrientationName],   setDefaults);
-    _minTriggerIntervalFact.setMetaData (_metaDataMap[_minTriggerIntervalName], setDefaults);
 }
 
 void CameraSpec::setDirty(bool dirty)
@@ -105,7 +55,7 @@ void CameraSpec::save(QJsonObject& json) const
 
 bool CameraSpec::load(const QJsonObject& json, QString& errorString)
 {
-    QList<JsonHelper::KeyValidateInfo> keyInfoList = {
+    QList<JsonParsing::KeyValidateInfo> keyInfoList = {
         { _sensorWidthName,         QJsonValue::Double, true },
         { _sensorHeightName,        QJsonValue::Double, true },
         { _imageWidthName,          QJsonValue::Double, true },
@@ -115,14 +65,14 @@ bool CameraSpec::load(const QJsonObject& json, QString& errorString)
         { _fixedOrientationName,    QJsonValue::Bool,   true },
         { _minTriggerIntervalName,  QJsonValue::Double, true },
     };
-    if (!JsonHelper::validateKeys(json, keyInfoList, errorString)) {
+    if (!JsonParsing::validateKeys(json, keyInfoList, errorString)) {
         return false;
     }
 
     _sensorWidthFact.setRawValue        (json[_sensorWidthName].toDouble());
     _sensorHeightFact.setRawValue       (json[_sensorHeightName].toDouble());
-    _imageWidthFact.setRawValue         (json[_imageWidthName].toDouble());
-    _imageHeightFact.setRawValue        (json[_imageHeightName].toDouble());
+    _imageWidthFact.setRawValue         (json[_imageWidthName].toInt());
+    _imageHeightFact.setRawValue        (json[_imageHeightName].toInt());
     _focalLengthFact.setRawValue        (json[_focalLengthName].toDouble());
     _landscapeFact.setRawValue          (json[_landscapeName].toBool());
     _fixedOrientationFact.setRawValue   (json[_fixedOrientationName].toBool());
